@@ -1,0 +1,131 @@
+#/bin/bash
+#testado e validado em
+#Ubuntu 21.04 - OK
+#Debian 10 - OK 
+#Kali OK
+#Centos 7 OK
+#Rocky Linux 8.5
+
+#vars global
+ID=`grep -e  ^grep -e  ^ID /etc/os-release | sed 's/ID=//g' | grep -v ID_LIKE | tr -d '"'`
+ID_LIKE=`grep -e  ID_LIKE /etc/os-release | tr -d "A-Z_="'"' | awk '{ print $1'}`
+VERSION=`grep -e  ^PRETTY_NAME /etc/os-release |  sed 's/PRETTY_NAME="//g'`
+VERSION_SO=`cat /etc/os-release | sed 's/ID=//g' | grep "VERSION" | tr -d "A-Z_="'"' | awk '{ print $1}' | uniq`
+VERSION_ID=`cat /etc/os-release | grep ^VERSION_ID= | tr -d A-Z,'_=''"'` #rocky linux
+
+
+check_dialog(){
+if [ -f  /usr/bin/dialog ]
+	 then echo "Sistema compativel" 
+	else 
+		echo "Desculpe ocorreu um erro"
+fi	
+}
+
+precheck() #verificar se o s.o tem os requisitos minimo para seguir
+{
+ID=`grep -e  ^grep -e  ^ID /etc/os-release | sed 's/ID=//g' | grep -v ID_LIKE | tr -d '"'`
+ID_LIKE=`grep -e  ID_LIKE /etc/os-release | tr -d "A-Z_="'"' | awk '{ print $1'}`
+VERSION=`grep -e  ^PRETTY_NAME /etc/os-release |  sed 's/PRETTY_NAME="//g'`
+VERSION_SO=`cat /etc/os-release | sed 's/ID=//g' | grep "VERSION" | tr -d "A-Z_="'"' | awk '{ print $1}' | uniq`
+VERSION_ID=`cat /etc/os-release | grep ^VERSION_ID= | tr -d A-Z,'_=''"'` #rocky linux
+
+if [ $ID = "debian" ] || [ $ID_LIKE = "debian" ] 
+    then 
+	echo "por favor aguarde um momento"
+	apt update && apt install dialog proxychains curl wget -y >> /var/log/proxyfive_install.log 
+	#apt install proxychains curl wget -y 1> /tmp/log_apt.txt  2> /tmp/log_apt_erro.txt
+
+	if [ -f  /usr/bin/dialog ]
+	 then echo "Sistema compativel" 
+	else 
+		echo "Desculpe ocorreu um erro, verifique no arquivo de log /var/log/proxyfive_install.log"
+	fi
+fi
+##########################################################
+#                      CENTOS OU REDHAT 8.5
+##########################################################
+if [ $ID = "rhel" ] && [ $VERSION_SO = "8.5" ];
+then  
+	echo "por favor aguarde um momento"
+	yum install curl dialog wget proxychains-ng -y  >> /var/log/proxyfive_install.log
+	check_dialog
+##########################################################
+#                      CENTOS OU REDHAT 7
+##########################################################
+elif [ $ID_LIKE = "rhel" ] && [ $VERSION_SO = "7" ];
+	then 
+	     echo "por favor aguarde um momento"
+		 yum install curl dialog wget https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/p/proxychains-ng-4.16-1.el7.x86_64.rpm -y 
+		 check_dialog
+##########################################################
+#                      ROCKY LINUX 
+##########################################################
+elif [ $ID_LIKE = "rhel" ] && [ $VERSION_ID = "8.5" ];
+	then 
+		 yum install curl dialog wget proxychains-ng -y  >> /var/log/proxyfive_install.log
+		 check_dialog
+else 
+	echo "sistema não não encontrado, por favor verifique a documentação official"
+	echo "www.proxyfive.com.br"
+fi 
+}
+instalador_debian() 
+{
+	precheck #verifica se o s.o tem o dialog instalado
+	PACOTE=`dpkg -l proxychains | grep -i "proxychains" | awk '{print $2}'`
+	VERSION_PROXYCHAYNS=`dpkg -l proxychains | grep -i "proxychains" | awk '{print $3}'`
+	
+	if [[ $PACOTE = "proxychains" ]]
+	then 
+		dialog                                            \
+   		--title 'Parabens'                             \
+   		--msgbox 'Instalacao finalizada com sucesso.'  \
+   		6 40
+
+	else 
+		tail /var/log/proxyfive_install.log > out &
+		dialog                                         \
+   			--title 'Ocorre um erro'  \
+		   --tailbox out                               \
+   			0 0
+	fi
+}
+
+instalador_redhat()
+{
+	precheck #verifica se o s.o tem o dialog instalado
+	PACOTE_NAME=`rpm -qa --qf '%{NAME} %{VERSION}\n'   | grep proxychains | awk '{print $1}'`
+	PACOTE_VERSION=`rpm -qa --qf '%{NAME} %{VERSION}\n'   | grep proxychains | awk '{print $2}'`
+	
+	if [[ $PACOTE_NAME = "proxychains-ng" ]]
+	then 
+		dialog                                            \
+   		--title 'Parabens'                             \
+   		--msgbox 'Instalacao finalizada com sucesso.'  \
+   		6 40
+
+	else 
+		tail  /var/log/proxyfive_install.log > out &
+		dialog                                         \
+   			--title 'Ocorreu um erro'  \
+		   --tailbox out                               \
+   			0 0
+	fi
+}
+#instalador_redhat 
+
+if [ $ID = "debian" ] || [ $ID_LIKE = "debian" ]; 
+    then 
+		instalador_debian
+elif [ $ID = "rhel" ] && [ $VERSION_SO = "8.5" ];
+	then
+	instalador_redhat
+elif [ $ID = "rhel" ] && [ $VERSION_SO = "8.5" ];
+	then instalador_redhat
+
+elif [ $ID_LIKE = "rhel" ] && [ $VERSION_SO = "7" ];
+	then instalador_redhat
+	else 
+		echo "Desculpe ocorreu um erro"
+fi 
